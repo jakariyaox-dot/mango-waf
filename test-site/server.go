@@ -1,20 +1,22 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
+//go:embed chart.min.js
+var chartJSResource []byte
+
 var (
 	histPassed  = make([]uint64, 60)
 	histBlocked = make([]uint64, 60)
 	lastJSON    atomic.Value
-	chartJSData atomic.Value
 	nodeURLs    = []string{
 		"http://103.77.246.172:9090/api/stats",
 		"http://103.77.246.153:9090/api/stats",
@@ -31,21 +33,6 @@ func init() {
 		"bps":          0,
 	})
 	lastJSON.Store(emptyJSON)
-
-	// Pre-fetch Chart.js for CSP 'self' bypass
-	go func() {
-		client := &http.Client{Timeout: 15 * time.Second}
-		for {
-			resp, err := client.Get("https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js")
-			if err == nil {
-				defer resp.Body.Close()
-				data, _ := io.ReadAll(resp.Body)
-				chartJSData.Store(data)
-				break
-			}
-			time.Sleep(5 * time.Second)
-		}
-	}()
 
 	go func() {
 		httpClient := &http.Client{Timeout: 1 * time.Second}
@@ -134,13 +121,15 @@ func main() {
 	})
 
 	http.HandleFunc("/assets/chart.js", func(w http.ResponseWriter, r *http.Request) {
-		data := chartJSData.Load()
-		if data == nil {
-			http.Redirect(w, r, "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js", http.StatusTemporaryRedirect)
-			return
-		}
 		w.Header().Set("Content-Type", "application/javascript")
-		w.Write(data.([]byte))
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Write(chartJSResource)
+	})
+
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/x-icon")
+		w.WriteHeader(http.StatusOK)
+		// Empty favicon
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
