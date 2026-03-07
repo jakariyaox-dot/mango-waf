@@ -45,6 +45,8 @@ protection:
   whitelist_ips:               # Danh sách các IP an toàn được ưu tiên (Bot của Google, Admin, IP nội bộ)
     - "127.0.0.1"
     - "171.234.8.251" # My local IP
+    - "103.77.246.172" # Node 1
+    - "103.77.246.153" # Node 2 itself
 
   # Rate Limiting — Giới hạn số lượng truy cập (Request) mỗi giây cho mỗi IP
   rate_limit:
