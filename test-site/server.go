@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
 var (
-	passedCount  uint64
-	blockedCount uint64
-	histPassed   = make([]uint64, 60)
-	histBlocked  = make([]uint64, 60)
-	lastJSON     atomic.Value
-	chartJSData  atomic.Value
+	histPassed  = make([]uint64, 60)
+	histBlocked = make([]uint64, 60)
+	lastJSON    atomic.Value
+	chartJSData atomic.Value
+	nodeURLs    = []string{
+		"http://103.77.246.172:9090/api/stats",
+		"http://103.77.246.153:9090/api/stats",
+	}
 )
 
 func init() {
@@ -24,6 +27,8 @@ func init() {
 		"hist_blocked": histBlocked,
 		"curr_passed":  0,
 		"curr_blocked": 0,
+		"pps":          0,
+		"bps":          0,
 	})
 	lastJSON.Store(emptyJSON)
 
@@ -43,33 +48,79 @@ func init() {
 	}()
 
 	go func() {
+		httpClient := &http.Client{Timeout: 1 * time.Second}
+		var lastTotalPassed, lastTotalBlocked uint64
+
 		for {
 			time.Sleep(1 * time.Second)
-			passed := atomic.SwapUint64(&passedCount, 0)
 
-			// Realistic simulated blocks (7-15% of traffic)
-			var blocked uint64
-			if passed > 0 {
-				blocked = (passed / 10) + (passed % 7)
+			var clusterTotalPassed uint64
+			var clusterTotalBlocked uint64
+			var wg sync.WaitGroup
+			var mu sync.Mutex
+
+			for _, url := range nodeURLs {
+				wg.Add(1)
+				go func(u string) {
+					defer wg.Done()
+					req, err := http.NewRequest("GET", u, nil)
+					if err != nil {
+						return
+					}
+					req.SetBasicAuth("admin", "admin123")
+					resp, err := httpClient.Do(req)
+					if err != nil {
+						return
+					}
+					defer resp.Body.Close()
+
+					var stats struct {
+						PassedRequests  uint64 `json:"passed_requests"`
+						BlockedRequests uint64 `json:"blocked_requests"`
+					}
+					if err := json.NewDecoder(resp.Body).Decode(&stats); err == nil {
+						mu.Lock()
+						clusterTotalPassed += stats.PassedRequests
+						clusterTotalBlocked += stats.BlockedRequests
+						mu.Unlock()
+					}
+				}(url)
 			}
+			wg.Wait()
+
+			var deltaPassed, deltaBlocked uint64
+			if lastTotalPassed > 0 || lastTotalBlocked > 0 {
+				if clusterTotalPassed >= lastTotalPassed {
+					deltaPassed = clusterTotalPassed - lastTotalPassed
+				}
+				if clusterTotalBlocked >= lastTotalBlocked {
+					deltaBlocked = clusterTotalBlocked - lastTotalBlocked
+				}
+			}
+			lastTotalPassed = clusterTotalPassed
+			lastTotalBlocked = clusterTotalBlocked
 
 			copy(histPassed[0:], histPassed[1:])
-			histPassed[59] = passed
+			histPassed[59] = deltaPassed
 
 			copy(histBlocked[0:], histBlocked[1:])
-			histBlocked[59] = blocked
+			histBlocked[59] = deltaBlocked
 
-			pps := passed + blocked
-			bps := pps * 5 * 1024 * 8
+			// Realistic PPS/BPS estimation from cluster deltas
+			pps := deltaPassed + deltaBlocked
+			bps := pps * 5 * 1024 * 8 // Roughly 5KB per request average
 
 			jsonData, _ := json.Marshal(map[string]interface{}{
-				"hist_passed":  histPassed,
-				"hist_blocked": histBlocked,
-				"curr_passed":  passed,
-				"curr_blocked": blocked,
-				"pps":          pps,
-				"bps":          bps,
-				"time":         time.Now().Format("15:04:05"),
+				"hist_passed":   histPassed,
+				"hist_blocked":  histBlocked,
+				"curr_passed":   clusterTotalPassed,
+				"curr_blocked":  clusterTotalBlocked,
+				"delta_passed":  deltaPassed,
+				"delta_blocked": deltaBlocked,
+				"pps":           pps,
+				"bps":           bps,
+				"node_count":    len(nodeURLs),
+				"time":          time.Now().Format("15:04:05"),
 			})
 			lastJSON.Store(jsonData)
 		}
@@ -97,7 +148,6 @@ func main() {
 			http.NotFound(w, r)
 			return
 		}
-		atomic.AddUint64(&passedCount, 1)
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, `<!DOCTYPE html>
@@ -105,7 +155,7 @@ func main() {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Mango Shield DStat Ultra - Resilience Edition</title>
+    <title>Mango Shield DStat Ultra - Cluster Edition</title>
     <script src="/assets/chart.js"></script>
     <style>
         :root {
@@ -146,7 +196,7 @@ func main() {
         .target-url { font-size: 13px; color: var(--accent); font-weight: 700; }
 
         .sys-status {
-            display: flex; align-items: center; gap: 10px;
+            display: flex; justify-content: space-between; align-items: center;
             font-size: 12px; font-weight: 700; color: var(--passed);
             margin-bottom: 20px; padding: 10px 20px;
             background: rgba(0, 255, 163, 0.03); border: 1px solid rgba(0, 255, 163, 0.1);
@@ -182,7 +232,7 @@ func main() {
             font-weight: 800; transition: 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
             z-index: 9999; box-shadow: 0 10px 30px rgba(0,255,163,0.3);
         }
-        #toast.show { translateY: 0; transform: translateX(-50%) translateY(20px); }
+        #toast.show { transform: translateX(-50%) translateY(20px); }
     </style>
 </head>
 <body>
@@ -193,7 +243,7 @@ func main() {
                 <div class="logo">🥭</div>
                 <div class="title">
                     <h1>MANGO DSTAT ULTRA</h1>
-                    <div style="font-size: 9px; color: var(--text2);">HIGH LOAD RESILIENCE EDITION</div>
+                    <div style="font-size: 9px; color: var(--text2);">HIGH LOAD CLUSTER EDITION</div>
                 </div>
             </div>
             <div class="target-box" onclick="copyTarget()">
@@ -203,32 +253,35 @@ func main() {
         </header>
 
         <div id="status-bar" class="sys-status">
-            <span id="status-dot" style="width:8px; height:8px; border-radius:50%; background:currentColor;"></span>
-            <span id="status-text">MONITORING SYSTEM LIVE - Performance Optimized</span>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span id="status-dot" style="width:8px; height:8px; border-radius:50%; background:currentColor;"></span>
+                <span id="status-text">CLUSTER ONLINE - Aggregating Metrics</span>
+            </div>
+            <div id="nodes-active" style="color:var(--accent)">2 NODES SYNCED</div>
         </div>
 
         <div class="main-stats">
             <div class="stat-card">
-                <div class="label">Passed Requests</div>
+                <div class="label">Total Passed</div>
                 <div id="val-passed" class="value" style="color:var(--passed)">0</div>
             </div>
             <div class="stat-card">
-                <div class="label">Blocked Threats</div>
+                <div class="label">Total Blocked</div>
                 <div id="val-blocked" class="value" style="color:var(--blocked)">0</div>
             </div>
             <div class="stat-card">
-                <div class="label">Throughput (PPS)</div>
+                <div class="label">Cluster PPS</div>
                 <div id="val-pps" class="value" style="color:var(--accent)">0</div>
             </div>
             <div class="stat-card">
-                <div class="label">Bandwidth</div>
+                <div class="label">Est. Bandwidth</div>
                 <div id="val-bps" class="value">0 Mbps</div>
             </div>
         </div>
 
         <div class="chart-box">
             <div class="chart-header">
-                <div style="font-size: 12px; font-weight: 700; color:var(--text2);">NETWORK ANALYSIS (60S)</div>
+                <div style="font-size: 12px; font-weight: 700; color:var(--text2);">CLUSTER ANALYSIS (60S)</div>
                 <div class="chart-legend">
                     <div style="color:var(--passed);">● PASSED</div>
                     <div style="color:var(--blocked);">● BLOCKED</div>
@@ -238,7 +291,7 @@ func main() {
         </div>
         
         <div class="footer">
-            Build v2.3.1-Resilient | Mango Shield Apex Enterprise | No-Wait Data Pipeline
+            Build v2.4.0-Cluster | Mango Shield Apex Enterprise | Multi-Node Aggregator
         </div>
     </div>
 
@@ -313,14 +366,15 @@ func main() {
                     document.getElementById('val-blocked').innerText = data.curr_blocked.toLocaleString();
                     document.getElementById('val-pps').innerText = data.pps.toLocaleString();
                     document.getElementById('val-bps').innerText = formatBytes(data.bps);
+                    document.getElementById('nodes-active').innerText = data.node_count + " NODES SYNCED";
                     
                     failCount = 0;
                     document.getElementById('status-bar').classList.remove('error');
-                    document.getElementById('status-text').innerText = "MONITORING SYSTEM LIVE - Performance Optimized";
+                    document.getElementById('status-text').innerText = "CLUSTER ONLINE - Aggregating Metrics";
                 } catch(e) {
                     failCount++;
                     document.getElementById('status-bar').classList.add('error');
-                    document.getElementById('status-text').innerText = "WAF PROTECTION ACTIVE - Retrying Connection (" + failCount + ")...";
+                    document.getElementById('status-text').innerText = "CONNECTION INTERRUPTED - Retrying (" + failCount + ")...";
                 }
             }
 
@@ -339,6 +393,6 @@ func main() {
 </html>`)
 	})
 
-	fmt.Println("Mango Shield DStat Ultra running on :8080")
+	fmt.Println("Mango Shield DStat Ultra (Cluster) running on :8080")
 	http.ListenAndServe(":8080", nil)
 }

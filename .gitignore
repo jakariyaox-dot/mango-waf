@@ -38,7 +38,6 @@ __pycache__/
 *.swo
 
 # Project specific
-GeoLite2-City.mmdb
 test-site/server.log
 test-site/server.go.back
 *.log
@@ -47,3 +46,4 @@ test-site/server.go.back
 # config/node-*.yaml
 # But usually we keep them if they are just examples with placeholders.
 # The user already replaced tokens with placeholders.
+server_linux

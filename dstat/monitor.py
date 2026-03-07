@@ -15,15 +15,14 @@ import collections
 from datetime import datetime
 
 # ── CONFIGURATION — Mango Shield Apex ──
-BOT_TOKEN = "token" #token bot telegram
-ALLOWED_GROUP_ID = 123456789 #id group telegram
+BOT_TOKEN = "6337073929:AAGsvCXWRJ6Ol-K5V1ZCJ6vmcLll-0UsnE8" #token bot telegram
+ALLOWED_GROUP_ID = -1001907788832 #id group telegram
 NODES = [
-    {"name": "Node 1 (.172)", "url": "http://IP-1:9090/api/stats"},
-    #...
-    {"name": "Node 2 (.153)", "url": "http://IP-2:9090/api/stats"}
+    {"name": "Node 1 (.172)", "url": "http://103.77.246.172:9090/api/stats"},
+    {"name": "Node 2 (.153)", "url": "http://103.77.246.153:9090/api/stats"}
 ]
-DEFAULT_TARGET = "https://example.com/"
-API_AUTH = ("user", "pass") #user pass admin website ip:9090
+DEFAULT_TARGET = "https://firewall.vutrungocrong.fun/"
+API_AUTH = ("admin", "admin123") #user pass admin website ip:9090
 TEST_DURATION = 120 #time test dstat
 
 bot = telebot.TeleBot(BOT_TOKEN)
