@@ -204,8 +204,8 @@ dashboard:
 alerts:
   telegram:
     enabled: true              # Bật cảnh báo Telegram khi có DDoS
-    token: "token" #token bot telegram
-    chat_id: "id group telegram"      # ID người nhận hoặc Group
+    token: "6337073929:AAGsvCXWRJ6Ol-K5V1ZCJ6vmcLll-0UsnE8" #token bot telegram
+    chat_id: "5805939083"      # ID người nhận hoặc Group
   discord:
     enabled: false             # Bật cảnh báo Discord
     webhook_url: ""            # Link Webhook của Discord
